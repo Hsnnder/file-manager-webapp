@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .upload-form {
+      margin-bottom: 20px;
+    }
+    .upload-form input[type="file"] {
+      display: block;
+      margin: 10px 0;
+    }
+    .file-list {
+      margin-top: 20px;
+    }
+    .file-list ul {
+      list-style: none;
+      padding: 0;
+    }
+    .file-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f9f9f9;
+      margin: 5px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .file-list button {
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .file-list button:hover {
+      background: #ff1a1a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard</h1>
+    <form class="upload-form" id="uploadForm" enctype="multipart/form-data">
+      <label for="file">Dosya Yükle:</label>
+      <input type="file" id="file" name="file" accept=".pdf,.png,.jpeg,.jpg" required>
+      <button type="submit">Yükle</button>
+    </form>
+    <div class="file-list">
+      <h2>Yüklenen Dosyalar</h2>
+      <ul id="fileList">
+        <!-- Yüklenen dosyalar burada listelenecek -->
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileList = document.getElementById('fileList');
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(uploadForm);
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Dosya başarıyla yüklendi!');
+          fetchFiles(); // Listeyi güncelle
+        } else {
+          alert('Dosya yükleme başarısız: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Hata:', error);
+        alert('Bir hata oluştu.');
+      }
+    });
+
+    // Yüklenen dosyaları listeleme
+    async function fetchFiles() {
+      try {
+        const response = await fetch('/api/files');
+        const result = await response.json();
+
+        if (result.success) {
+          fileList.innerHTML = ''; // Listeyi temizle
+
+          result.files.forEach(file => {
+            const li = document.createElement('li');
+            li.textContent = file;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Sil';
+            deleteButton.onclick = () => deleteFile(file);
+
+            li.appendChild(deleteButton);
+            fileList.appendChild(li);
+          });
+        } else {
+          alert('Dosyalar listelenemedi!');
+        }
+      } catch (error) {
+        console.error('Hata:', error);
+        alert('Dosyalar listelenirken bir hata oluştu.');
+      }
+    }
+
+    // Dosya silme
+    async function deleteFile(fileName) {
+      try {
+        const response = await fetch('/api/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filename: fileName }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Dosya başarıyla silindi!');
+          fetchFiles(); // Listeyi güncelle
+        } else {
+          alert('Dosya silinemedi: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Hata:', error);
+        alert('Dosya silinirken bir hata oluştu.');
+      }
+    }
+
+    // Sayfa yüklendiğinde dosyaları listele
+    fetchFiles();
+  </script>
+</body>
+</html>
