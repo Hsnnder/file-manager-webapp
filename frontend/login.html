@@ -58,48 +58,182 @@
     .create-account:hover {
       text-decoration: underline;
     }
+    .forgot-password {
+      display: block;
+      margin-top: 10px;
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .forgot-password:hover {
+      text-decoration: underline;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 400px;
+      position: relative;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover {
+      color: black;
+    }
+    .modal-content h2 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .modal-content form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .modal-content input {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .modal-content button {
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .modal-content button:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
   <div class="login-container">
     <h1>Giriş Yap</h1>
-    <form action="/api/login" method="POST">
+    <form id="loginForm">
       <input type="email" name="email" placeholder="E-posta" required>
       <input type="password" name="password" placeholder="Şifre" required>
       <button type="submit">Giriş Yap</button>
     </form>
     <a href="/register.html" class="create-account">Hesap Oluştur</a>
-
+    <a href="#" id="forgotPassword" class="forgot-password">Şifremi Unuttum</a>
   </div>
+
+  <!-- Şifre Sıfırlama Modal -->
+  <div id="resetPasswordModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Şifre Sıfırlama</h2>
+      <form id="resetPasswordForm">
+        <input type="email" name="email" placeholder="E-posta" required>
+        <input type="text" name="resetWord" placeholder="Şifre sıfırlama kelimesi" required>
+        <input type="password" name="newPassword" placeholder="Yeni şifre" required minlength="6">
+        <button type="submit">Şifremi Sıfırla</button>
+      </form>
+    </div>
+  </div>
+
   <script>
-    const form= document.querySelector('form');
-    form.addEventListener('submit', async (e)=>{
+    // Login form işlemleri
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const formData = new FormData(form);
+        const formData = new FormData(loginForm);
         const data = Object.fromEntries(formData.entries());
+
         try {
-          const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-          });
-          const result = await response.json();
-          if (result.success) {
-            //tokaeni local storea kaydet
-            localStorage.setItem('token', result.token);
-            // Kullanıcı adını al ve hoş geldin mesajı göster
-            alert('Giriş başarılı! Hoş geldiniz, ' + result.name);
-            window.location.href = '/dashboard.html';
-          } else {
-            alert('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
-          }
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            console.log('Login response:', result);
+
+            if (result.success) {
+                localStorage.setItem('token', result.token);
+                alert('Giriş başarılı! Hoş geldiniz, ' + result.user.name);
+                window.location.href = '/index.html';
+            } else {
+                alert(result.message || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+            }
         } catch (error) {
-          console.error('Error:', error);
+            console.error('Login error:', error);
+            alert('Sunucu hatası: ' + error.message);
         }
-    })
+    });
+
+    // Şifre sıfırlama modal işlemleri
+    const modal = document.getElementById('resetPasswordModal');
+    const forgotPasswordLink = document.getElementById('forgotPassword');
+    const closeBtn = document.querySelector('.close');
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+
+    forgotPasswordLink.onclick = function(e) {
+        e.preventDefault();
+        modal.style.display = "block";
+    }
+
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    resetPasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(resetPasswordForm);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch('/api/reset-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            console.log('Reset password response:', result);
+
+            if (result.success) {
+                alert('Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.');
+                modal.style.display = "none";
+                resetPasswordForm.reset();
+            } else {
+                alert(result.message || 'Şifre sıfırlama başarısız. Lütfen bilgilerinizi kontrol edin.');
+            }
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Sunucu hatası: ' + error.message);
+        }
+    });
   </script>
 </body>
 </html>

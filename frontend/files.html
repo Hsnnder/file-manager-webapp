@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dosyalarım</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            background: #f9f9f9;
+        }
+        .file-info {
+            flex-grow: 1;
+        }
+        .file-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .file-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+            color: white;
+            text-decoration: none;
+        }
+        .btn-download {
+            background-color: #007bff;
+        }
+        .btn-download:hover {
+            background-color: #0056b3;
+        }
+        .btn-delete {
+            background-color: #dc3545;
+        }
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+        .btn-back {
+            background-color: #6c757d;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+        .btn-back:hover {
+            background-color: #5a6268;
+        }
+        .empty-message {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+        }
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dosyalarım</h1>
+        <div id="message"></div>
+        <div id="fileList" class="file-list">
+            <div class="loading">Dosyalar yükleniyor...</div>
+        </div>
+        <a href="/index.html" class="btn btn-back">Ana Sayfaya Dön</a>
+    </div>
+
+    <script>
+        // Token kontrolü
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        const fileList = document.getElementById('fileList');
+        const messageDiv = document.getElementById('message');
+
+        // Dosyaları listele
+        async function fetchFiles() {
+            try {
+                const response = await fetch('/api/files', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                console.log('Files response:', result);
+
+                if (result.success) {
+                    if (result.files.length === 0) {
+                        fileList.innerHTML = '<div class="empty-message">Henüz dosya yüklenmemiş</div>';
+                        return;
+                    }
+
+                    fileList.innerHTML = '';
+                    result.files.forEach(file => {
+                        const li = document.createElement('div');
+                        li.className = 'file-item';
+                        li.innerHTML = `
+                            <div class="file-info">
+                                <div class="file-name">${file.originalName}</div>
+                                <div class="file-details">
+                                    Boyut: ${formatFileSize(file.size)}<br>
+                                    Yüklenme: ${new Date(file.createdAt).toLocaleString()}
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <a href="/api/files/${file.filename}/download" class="btn btn-download" 
+                                   onclick="downloadFile(event, '${file.filename}', '${file.originalName}')">İndir</a>
+                                <button class="btn btn-delete" 
+                                        onclick="deleteFile('${file.filename}')">Sil</button>
+                            </div>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                } else {
+                    showMessage(result.message || 'Dosyalar listelenemedi', 'error');
+                }
+            } catch (error) {
+                console.error('List files error:', error);
+                showMessage('Dosyalar listelenirken bir hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        // Dosya boyutunu formatla
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Dosya indir
+        async function downloadFile(event, filename, originalName) {
+            event.preventDefault();
+            try {
+                const response = await fetch(`/api/files/${filename}/download`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Dosya indirilemedi');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = originalName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Download error:', error);
+                showMessage('Dosya indirilirken bir hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        // Dosya sil
+        async function deleteFile(filename) {
+            if (!confirm('Bu dosyayı silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/files/${filename}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                console.log('Delete response:', result);
+
+                if (result.success) {
+                    showMessage('Dosya başarıyla silindi', 'success');
+                    fetchFiles(); // Listeyi güncelle
+                } else {
+                    showMessage(result.message || 'Dosya silinemedi', 'error');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showMessage('Dosya silinirken bir hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 5000);
+        }
+
+        // Sayfa yüklendiğinde dosyaları listele
+        fetchFiles();
+    </script>
+</body>
+</html> 

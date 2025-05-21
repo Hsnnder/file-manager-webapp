@@ -52,42 +52,70 @@
 <body>
   <div class="register-container">
     <h1>Hesap Oluştur</h1>
-    <form action="/api/register" method="POST">
+    <form id="registerForm">
       <input type="text" name="name" placeholder="Ad Soyad" required>
       <input type="email" name="email" placeholder="E-posta" required>
-      <input type="password" name="password" placeholder="Şifre" required>
+      <input type="password" name="password" placeholder="Şifre" required minlength="6">
+      <input type="text" name="resetWord" placeholder="Şifre sıfırlama kelimesi (en az 3 karakter)" required minlength="3">
       <button type="submit">Kayıt Ol</button>
     </form>
   </div>
   <script>
-    const form = document.querySelector('form');
+    const form = document.getElementById('registerForm');
+    const errorDiv = document.createElement('div');
+    errorDiv.style.color = 'red';
+    errorDiv.style.marginTop = '10px';
+    form.appendChild(errorDiv);
+
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+        e.preventDefault();
+        errorDiv.textContent = ''; // Hata mesajını temizle
 
-      const formData = new FormData(form);
-      const data = Object.fromEntries(formData.entries());
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
 
-      try {
-        const response = await fetch('/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          // Token'ı localStorage'a kaydet
-          localStorage.setItem('token', result.token);
-          alert('Kayıt başarılı! Login sayfasına yönlendiriliyorsunuz...');
-          // Login sayfasına yönlendir
-          window.location.href = '/login.html';
-        } else {
-          alert(result.message);
+        // Şifre kontrolü
+        if (data.password.length < 6) {
+            errorDiv.textContent = 'Şifre en az 6 karakter olmalıdır';
+            return;
         }
-      } catch (error) {
-        console.error('Hata:', error);
-        alert('Bir hata oluştu.');
-      }
+
+        // Email formatı kontrolü
+        const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+        if (!emailRegex.test(data.email)) {
+            errorDiv.textContent = 'Geçerli bir email adresi giriniz';
+            return;
+        }
+
+        // Şifre sıfırlama kelimesi kontrolü
+        if (data.resetWord.length < 3) {
+            errorDiv.textContent = 'Şifre sıfırlama kelimesi en az 3 karakter olmalıdır';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            console.log('Register response:', result);
+
+            if (result.success) {
+                localStorage.setItem('token', result.token);
+                alert('Kayıt başarılı! Hoş geldiniz, ' + result.user.name);
+                window.location.href = '/login.html';
+            } else {
+                errorDiv.textContent = result.message || 'Kayıt başarısız. Lütfen bilgilerinizi kontrol edin.';
+            }
+        } catch (error) {
+            console.error('Register error:', error);
+            errorDiv.textContent = 'Sunucu hatası: ' + error.message;
+        }
     });
   </script>
 </body>

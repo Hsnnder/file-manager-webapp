@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dosya Yükle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .file-input-container {
+            border: 2px dashed #ccc;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        .file-input-container:hover {
+            border-color: #007bff;
+        }
+        .file-input {
+            display: none;
+        }
+        .file-label {
+            cursor: pointer;
+            color: #666;
+        }
+        .selected-file {
+            margin-top: 1rem;
+            color: #28a745;
+            font-weight: bold;
+        }
+        .btn {
+            padding: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+            color: white;
+        }
+        .btn-upload {
+            background-color: #28a745;
+        }
+        .btn-upload:hover {
+            background-color: #218838;
+        }
+        .btn-back {
+            background-color: #6c757d;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .btn-back:hover {
+            background-color: #5a6268;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .success-message {
+            color: #28a745;
+            margin-top: 1rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dosya Yükle</h1>
+        <form id="uploadForm" class="upload-form">
+            <div class="file-input-container" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,.png,.jpeg,.jpg">
+                <div class="file-label">
+                    Dosya seçmek için tıklayın veya sürükleyin
+                    <br>
+                    <small>Desteklenen formatlar: PDF, PNG, JPEG, JPG</small>
+                </div>
+                <div id="selectedFile" class="selected-file"></div>
+            </div>
+            <button type="submit" class="btn btn-upload">Dosyayı Yükle</button>
+        </form>
+        <a href="/index.html" class="btn btn-back">Ana Sayfaya Dön</a>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Token kontrolü
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
+        const messageDiv = document.getElementById('message');
+
+        // Dosya seçildiğinde
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile.textContent = `Seçilen dosya: ${file.name}`;
+            } else {
+                selectedFile.textContent = '';
+            }
+        });
+
+        // Form gönderildiğinde
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('Lütfen bir dosya seçin', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log('Upload response:', result);
+
+                if (result.success) {
+                    showMessage('Dosya başarıyla yüklendi!', 'success');
+                    uploadForm.reset();
+                    selectedFile.textContent = '';
+                } else {
+                    showMessage(result.message || 'Dosya yükleme başarısız', 'error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showMessage('Dosya yükleme hatası: ' + error.message, 'error');
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html> 
